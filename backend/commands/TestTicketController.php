@@ -4,6 +4,12 @@ namespace app\commands;
 
 use app\models\Entity\AiDecision;
 use app\models\Entity\Ticket;
+use app\models\Enum\Category;
+use app\models\Enum\EnvelopeStatus;
+use app\models\Enum\PolicyDecision;
+use app\models\Enum\Priority;
+use app\models\Enum\Risk;
+use app\models\Enum\RoutingDecision;
 use yii\console\Controller;
 use yii\console\ExitCode;
 use yii\helpers\Console;
@@ -44,16 +50,6 @@ class TestTicketController extends Controller
     ];
 
     private const MODELS = ['claude-opus-4-8', 'claude-sonnet-4-6', 'claude-haiku-4-5'];
-
-    private const STATUSES = ['completed', 'failed', 'needs_review', 'pending'];
-
-    private const CATEGORIES = ['billing', 'technical', 'account', 'general', 'abuse', 'feature_request'];
-
-    private const PRIORITIES = ['low', 'medium', 'high', 'urgent'];
-
-    private const RISKS = ['low', 'medium', 'high'];
-
-    private const ROUTES = ['auto_resolve', 'human_agent', 'tier2_support', 'billing_team', 'security_team'];
 
     private const RULES = ['rule_pii_detected', 'rule_refund_request', 'rule_high_priority', 'rule_vip_customer', 'rule_spam'];
 
@@ -118,27 +114,26 @@ class TestTicketController extends Controller
 
     private function makeDecision(int $ticketId): AiDecision
     {
-        $category = $this->pick(self::CATEGORIES);
-        $priority = $this->pick(self::PRIORITIES);
-        $risk = $this->pick(self::RISKS);
+        $category = $this->pickEnum(Category::class);
+        $priority = $this->pickEnum(Priority::class);
+        $risk = $this->pickEnum(Risk::class);
         $confidence = round(random_int(5000, 10000) / 10000, 4);
-        $route = $this->pick(self::ROUTES);
 
         return new AiDecision([
             'ticket_id' => $ticketId,
             'schema_version' => 'v1',
             'policy_version' => 'p1',
             'model' => $this->pick(self::MODELS),
-            'status' => $this->pick(self::STATUSES),
+            'status' => $this->pickEnum(EnvelopeStatus::class),
             'category' => $category,
             'priority' => $priority,
             'risk' => $risk,
             'confidence' => $confidence,
             'summary' => $this->pick(self::SENTENCES),
             'reason' => $this->randomBody(),
-            'model_routing_decision' => $route,
-            'final_routing_decision' => $route,
-            'policy_decision' => $this->pick(['allow', 'block', 'review']),
+            'model_routing_decision' => $this->pickEnum(RoutingDecision::class),
+            'final_routing_decision' => $this->pickEnum(RoutingDecision::class),
+            'policy_decision' => $this->pickEnum(PolicyDecision::class),
             'executable_actions_allowed' => (bool) random_int(0, 1),
             'matched_rules' => $this->randomRules(),
             'validation_errors' => null,
@@ -152,6 +147,18 @@ class TestTicketController extends Controller
             'latency_ms' => random_int(150, 4000),
             'trace_id' => 'trace-' . bin2hex(random_bytes(8)),
         ]);
+    }
+
+    /**
+     * Случайное backing-значение из строкового enum.
+     *
+     * @param class-string<\BackedEnum> $enum
+     */
+    private function pickEnum(string $enum): string
+    {
+        $cases = $enum::cases();
+
+        return $cases[array_rand($cases)]->value;
     }
 
     /**

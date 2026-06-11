@@ -78,8 +78,9 @@ migrate-create: ## Создать миграцию: make migrate-create name=cre
 
 # ——— Тесты ———
 .PHONY: test-db
-test-db: ## Создать тестовую БД ticket_test (если ещё нет)
+test-db: ## Создать и мигрировать тестовую БД ticket_test
 	$(COMPOSE) exec -T postgres createdb -U $(POSTGRES_USER) ticket_test || true
+	$(COMPOSE) run --rm --user $(UID):$(GID) -e COMPOSER_HOME=/tmp/composer -e DB_NAME=ticket_test php php yii migrate --interactive=0
 
 .PHONY: test-build
 test-build: ## Сгенерировать Tester-классы codeception

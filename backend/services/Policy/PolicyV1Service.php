@@ -5,7 +5,7 @@ namespace app\services\Policy;
 use app\models\Enum\PolicyDecision;
 use app\services\Dto\ClassificationResultDto;
 
-class PolicyInterfaceV1Service implements TicketPolicyInterface
+class PolicyV1Service implements TicketPolicyInterface
 {
     public function getVersion(): string
     {

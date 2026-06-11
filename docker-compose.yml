@@ -25,6 +25,7 @@ services:
       DB_PASSWORD: ${POSTGRES_PASSWORD:-ticket}
       REDIS_HOST: ${REDIS_HOST:-redis}
       REDIS_PORT: ${REDIS_PORT:-6379}
+      COOKIE_VALIDATION_KEY: ${COOKIE_VALIDATION_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -37,6 +38,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-ticket}
       POSTGRES_USER: ${POSTGRES_USER:-ticket}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ticket}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5433}
       PGDATA: /var/lib/postgresql/data/pgdata
     ports:
       - "${POSTGRES_PORT:-5432}:5432"

@@ -17,9 +17,9 @@ use yii\db\ActiveRecord;
  * @property string $source канал/система-источник
  * @property string $created_at
  *
- * @property AiDecisions[] $aiDecisions
+ * @property AiDecision[] $aiDecisions
  */
-class Tickets extends ActiveRecord
+class Ticket extends ActiveRecord
 {
     public static function tableName(): string
     {
@@ -62,6 +62,6 @@ class Tickets extends ActiveRecord
      */
     public function getAiDecisions(): ActiveQuery
     {
-        return $this->hasMany(AiDecisions::class, ['ticket_id' => 'id']);
+        return $this->hasMany(AiDecision::class, ['ticket_id' => 'id']);
     }
 }

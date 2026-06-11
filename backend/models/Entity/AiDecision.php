@@ -35,9 +35,9 @@ use yii\db\ActiveRecord;
  * @property string $trace_id
  * @property string $created_at
  *
- * @property Tickets $ticket
+ * @property Ticket $ticket
  */
-class AiDecisions extends ActiveRecord
+class AiDecision extends ActiveRecord
 {
     public static function tableName(): string
     {
@@ -66,7 +66,7 @@ class AiDecisions extends ActiveRecord
                 ['ticket_id'],
                 'exist',
                 'skipOnError' => true,
-                'targetClass' => Tickets::class,
+                'targetClass' => Ticket::class,
                 'targetAttribute' => ['ticket_id' => 'id'],
             ],
         ];
@@ -106,6 +106,6 @@ class AiDecisions extends ActiveRecord
      */
     public function getTicket(): ActiveQuery
     {
-        return $this->hasOne(Tickets::class, ['id' => 'ticket_id']);
+        return $this->hasOne(Ticket::class, ['id' => 'ticket_id']);
     }
 }

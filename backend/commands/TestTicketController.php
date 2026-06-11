@@ -5,7 +5,7 @@ namespace app\commands;
 use app\models\Entity\AiDecision;
 use app\models\Entity\Ticket;
 use app\models\Enum\Category;
-use app\models\Enum\EnvelopeStatus;
+use app\models\Enum\ClassificationStatus;
 use app\models\Enum\PolicyDecision;
 use app\models\Enum\Priority;
 use app\models\Enum\Risk;
@@ -124,7 +124,7 @@ class TestTicketController extends Controller
             'schema_version' => 'v1',
             'policy_version' => 'p1',
             'model' => $this->pick(self::MODELS),
-            'status' => $this->pickEnum(EnvelopeStatus::class),
+            'status' => $this->pickEnum(ClassificationStatus::class),
             'category' => $category,
             'priority' => $priority,
             'risk' => $risk,

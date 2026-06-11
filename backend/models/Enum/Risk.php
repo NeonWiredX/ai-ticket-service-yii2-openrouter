@@ -9,5 +9,5 @@ enum Risk: string
     case SECURITY = 'security';
     case MONEY_MOVEMENT = 'money_movement';
     case EXTERNAL_SEND = 'external_send';
-    case DESTRUCTIVE_ACTION = 'destruct_active';
+    case DESTRUCTIVE_ACTION = 'destructive_action';
 }

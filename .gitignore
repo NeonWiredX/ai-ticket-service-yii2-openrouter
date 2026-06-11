@@ -1,0 +1,27 @@
+# Локальное окружение и секреты. .env.example коммитим (он не подпадает под .env).
+.env
+.env.local
+.env.*.local
+
+# IDE / редакторы
+.idea/
+.vscode/
+*.iml
+nbproject/
+.project
+.buildpath
+.settings/
+
+# ОС
+.DS_Store
+Thumbs.db
+
+# Бэкенд: зависимости и рантайм-артефакты.
+# Детальные правила — в backend/.gitignore и вложенных runtime/ и web/assets/.
+/backend/vendor/
+/backend/composer.phar
+/backend/runtime/*
+!/backend/runtime/.gitignore
+/backend/web/assets/*
+!/backend/web/assets/.gitignore
+/backend/tests/_output/*

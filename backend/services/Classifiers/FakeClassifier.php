@@ -13,7 +13,7 @@ use app\services\Dto\ClassificationResultDto;
  * Заглушка классификатора: возвращает случайный результат вместо вызова модели.
  * Собирает «сырой ответ» и прогоняет его через гидрацию DTO — как настоящий.
  */
-class FakeClassifierInterface implements TicketClassifierInterface
+class FakeClassifier implements TicketClassifierInterface
 {
     public function classify(Ticket $ticket): ClassificationResultDto
     {

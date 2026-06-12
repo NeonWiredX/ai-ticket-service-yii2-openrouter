@@ -2,7 +2,7 @@
 
 namespace app\commands;
 
-use app\services\Classifiers\FakeClassifierInterface;
+use app\services\Classifiers\FakeClassifier;
 use app\services\Policy\PolicyV1Service;
 use app\services\TicketClassificationService;
 use yii\console\Controller;
@@ -62,7 +62,7 @@ class TestTicketController extends Controller
             return ExitCode::DATAERR;
         }
 
-        $service = new TicketClassificationService(new FakeClassifierInterface(), new PolicyV1Service());
+        $service = new TicketClassificationService(new FakeClassifier(), new PolicyV1Service());
 
         $created = 0;
         for ($i = 0; $i < $count; $i++) {

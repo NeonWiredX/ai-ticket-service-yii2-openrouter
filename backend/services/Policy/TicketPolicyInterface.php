@@ -2,12 +2,12 @@
 
 namespace app\services\Policy;
 
-use app\models\Enum\PolicyDecision;
 use app\services\Dto\ClassificationResultDto;
+use app\services\Dto\PolicyResultDto;
 
 interface TicketPolicyInterface
 {
     public function getVersion(): string;
 
-    public function checkPolicy(ClassificationResultDto $classificationResultDto): PolicyDecision;
+    public function checkPolicy(ClassificationResultDto $classificationResultDto): PolicyResultDto;
 }

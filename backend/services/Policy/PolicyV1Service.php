@@ -4,10 +4,13 @@ namespace app\services\Policy;
 
 use app\models\Enum\PolicyDecision;
 use app\models\Enum\Risk;
+use app\models\Enum\RoutingDecision;
 use app\services\Dto\ClassificationResultDto;
+use app\services\Dto\PolicyResultDto;
 
 /**
- * Политика v1: решает, можно ли выполнять действия по тикету автоматически.
+ * Политика v1: решает, можно ли выполнять действия по тикету автоматически,
+ * и куда его направить.
  */
 class PolicyV1Service implements TicketPolicyInterface
 {
@@ -23,28 +26,67 @@ class PolicyV1Service implements TicketPolicyInterface
 
     public function getVersion(): string
     {
-        return 'v1';
+        return 'policy.v1';
     }
 
-    public function checkPolicy(ClassificationResultDto $classificationResultDto): PolicyDecision
+    public function checkPolicy(ClassificationResultDto $classificationResultDto): PolicyResultDto
+    {
+        [$decision, $matchedRules, $reason] = $this->decide($classificationResultDto);
+
+        return new PolicyResultDto(
+            decision: $decision,
+            finalRoutingDecision: $this->resolveRoute($decision, $classificationResultDto->modelRoutingDecision),
+            executableActionsAllowed: false, //TODO: добавить в классификатор предлагаемое действие (а вообще надо? по идее это роутер, обработка на след сервисе)
+            matchedRules: $matchedRules,
+            reason: $reason,
+            policyVersion: $this->getVersion(),
+        );
+    }
+
+    /**
+     * Вердикт + сработавшие правила + причина.
+     *
+     * @return array{0: PolicyDecision, 1: string[], 2: string}
+     */
+    private function decide(ClassificationResultDto $dto): array
     {
         // Провал разбора ответа модели — ничего автоматически не выполняем.
-        if ($classificationResultDto->validationErrors !== null) {
-            return PolicyDecision::BLOCKED;
+        if ($dto->validationErrors !== null) {
+            return [PolicyDecision::BLOCKED, ['classification_failed'], 'Классификация не прошла валидацию.'];
         }
 
         // Рискованные категории — только через ручное одобрение.
-        if (in_array($classificationResultDto->risk, self::RISKY, true)) {
-            return PolicyDecision::REQUIRES_APPROVAL;
+        if (in_array($dto->risk, self::RISKY, true)) {
+            return [
+                PolicyDecision::REQUIRES_APPROVAL,
+                ['risky_category'],
+                "Рискованная категория: {$dto->risk->value}.",
+            ];
         }
 
         // Низкая уверенность модели — тоже на одобрение.
-        if ($classificationResultDto->confidence !== null
-            && $classificationResultDto->confidence < self::APPROVAL_THRESHOLD
-        ) {
-            return PolicyDecision::REQUIRES_APPROVAL;
+        if ($dto->confidence !== null && $dto->confidence < self::APPROVAL_THRESHOLD) {
+            return [
+                PolicyDecision::REQUIRES_APPROVAL,
+                ['low_confidence'],
+                "Низкая уверенность модели: {$dto->confidence}.",
+            ];
         }
 
-        return PolicyDecision::ALLOWED;
+        return [PolicyDecision::ALLOWED, ['auto_allowed'], 'Безопасно для автоматической обработки.'];
+    }
+
+    /**
+     * Итоговый маршрут — всегда RoutingDecision:
+     * ALLOWED → маршрут модели (фолбэк MANUAL_TRIAGE), REQUIRES_APPROVAL → HUMAN_REVIEW,
+     * BLOCKED → MANUAL_TRIAGE.
+     */
+    private function resolveRoute(PolicyDecision $decision, ?RoutingDecision $modelRoute): RoutingDecision
+    {
+        return match ($decision) {
+            PolicyDecision::ALLOWED => $modelRoute ?? RoutingDecision::MANUAL_TRIAGE,
+            PolicyDecision::REQUIRES_APPROVAL => RoutingDecision::HUMAN_REVIEW,
+            PolicyDecision::BLOCKED => RoutingDecision::MANUAL_TRIAGE,
+        };
     }
 }

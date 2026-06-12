@@ -81,7 +81,7 @@ class TicketClassificationServiceTest extends \Codeception\Test\Unit
         $this->assertSame('allowed', $ai->policy_decision);
         $this->assertTrue((bool) $ai->executable_actions_allowed);
         $this->assertSame('support_queue', $ai->final_routing_decision);
-        $this->assertSame('v1', $ai->policy_version);
+        $this->assertSame((new PolicyV1Service())->getVersion(), $ai->policy_version);
     }
 
     public function testRiskyDecisionRequiresApproval(): void

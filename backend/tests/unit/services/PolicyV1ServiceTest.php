@@ -3,50 +3,67 @@
 namespace tests\unit\services;
 
 use app\models\Enum\PolicyDecision;
+use app\models\Enum\RoutingDecision;
 use app\services\Dto\ClassificationResultDto;
+use app\services\Dto\PolicyResultDto;
 use app\services\Policy\PolicyV1Service;
 
 class PolicyV1ServiceTest extends \Codeception\Test\Unit
 {
-    private function check(array $modelOutput): PolicyDecision
+    /**
+     * @param array<string,mixed> $modelOutput
+     */
+    private function check(array $modelOutput): PolicyResultDto
     {
         $dto = ClassificationResultDto::fromModelOutput($modelOutput, model: 'm', schemaVersion: 'v1', traceId: 't');
 
         return (new PolicyV1Service())->checkPolicy($dto);
     }
 
-    public function testFailedParsingIsBlocked(): void
+    public function testFailedParsingIsBlockedAndRoutedToTriage(): void
     {
         // битый enum → validationErrors → BLOCKED
-        $this->assertSame(PolicyDecision::BLOCKED, $this->check(['category' => 'garbage']));
+        $result = $this->check(['category' => 'garbage']);
+
+        $this->assertSame(PolicyDecision::BLOCKED, $result->decision);
+        $this->assertSame(RoutingDecision::MANUAL_TRIAGE, $result->finalRoutingDecision);
+        $this->assertFalse($result->executableActionsAllowed);
+        $this->assertContains('classification_failed', $result->matchedRules);
     }
 
-    public function testRiskyRiskRequiresApproval(): void
+    public function testRiskyRiskRequiresApprovalAndHumanReview(): void
     {
-        $this->assertSame(
-            PolicyDecision::REQUIRES_APPROVAL,
-            $this->check(['risk' => 'security', 'confidence' => 0.99]),
-        );
+        $result = $this->check(['risk' => 'security', 'confidence' => 0.99]);
+
+        $this->assertSame(PolicyDecision::REQUIRES_APPROVAL, $result->decision);
+        $this->assertSame(RoutingDecision::HUMAN_REVIEW, $result->finalRoutingDecision);
+        $this->assertFalse($result->executableActionsAllowed);
+        $this->assertContains('risky_category', $result->matchedRules);
     }
 
     public function testLowConfidenceRequiresApproval(): void
     {
-        $this->assertSame(
-            PolicyDecision::REQUIRES_APPROVAL,
-            $this->check(['risk' => 'none', 'confidence' => 0.3]),
-        );
+        $result = $this->check(['risk' => 'none', 'confidence' => 0.3]);
+
+        $this->assertSame(PolicyDecision::REQUIRES_APPROVAL, $result->decision);
+        $this->assertContains('low_confidence', $result->matchedRules);
     }
 
-    public function testSafeHighConfidenceIsAllowed(): void
+    public function testSafeHighConfidenceIsAllowedAndKeepsModelRoute(): void
     {
-        $this->assertSame(
-            PolicyDecision::ALLOWED,
-            $this->check(['risk' => 'none', 'confidence' => 0.95]),
-        );
+        $result = $this->check(['risk' => 'none', 'confidence' => 0.95, 'routing_decision' => 'support_queue']);
+
+        $this->assertSame(PolicyDecision::ALLOWED, $result->decision);
+        $this->assertSame(RoutingDecision::SUPPORT_QUEUE, $result->finalRoutingDecision);
+        $this->assertTrue($result->executableActionsAllowed);
+        $this->assertContains('auto_allowed', $result->matchedRules);
     }
 
-    public function testVersion(): void
+    public function testResultCarriesPolicyVersion(): void
     {
-        $this->assertSame('v1', (new PolicyV1Service())->getVersion());
+        $this->assertSame(
+            (new PolicyV1Service())->getVersion(),
+            $this->check(['risk' => 'none', 'confidence' => 0.95])->policyVersion,
+        );
     }
 }

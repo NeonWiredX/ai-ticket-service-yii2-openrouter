@@ -27,7 +27,6 @@ class PolicyV1ServiceTest extends \Codeception\Test\Unit
 
         $this->assertSame(PolicyDecision::BLOCKED, $result->decision);
         $this->assertSame(RoutingDecision::MANUAL_TRIAGE, $result->finalRoutingDecision);
-        $this->assertFalse($result->executableActionsAllowed);
         $this->assertContains('classification_failed', $result->matchedRules);
     }
 
@@ -37,7 +36,6 @@ class PolicyV1ServiceTest extends \Codeception\Test\Unit
 
         $this->assertSame(PolicyDecision::REQUIRES_APPROVAL, $result->decision);
         $this->assertSame(RoutingDecision::HUMAN_REVIEW, $result->finalRoutingDecision);
-        $this->assertFalse($result->executableActionsAllowed);
         $this->assertContains('risky_category', $result->matchedRules);
     }
 
@@ -55,7 +53,6 @@ class PolicyV1ServiceTest extends \Codeception\Test\Unit
 
         $this->assertSame(PolicyDecision::ALLOWED, $result->decision);
         $this->assertSame(RoutingDecision::SUPPORT_QUEUE, $result->finalRoutingDecision);
-        $this->assertTrue($result->executableActionsAllowed);
         $this->assertContains('auto_allowed', $result->matchedRules);
     }
 

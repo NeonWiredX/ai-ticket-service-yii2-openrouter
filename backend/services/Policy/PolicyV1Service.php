@@ -36,7 +36,6 @@ class PolicyV1Service implements TicketPolicyInterface
         return new PolicyResultDto(
             decision: $decision,
             finalRoutingDecision: $this->resolveRoute($decision, $classificationResultDto->modelRoutingDecision),
-            executableActionsAllowed: false, //TODO: добавить в классификатор предлагаемое действие (а вообще надо? по идее это роутер, обработка на след сервисе)
             matchedRules: $matchedRules,
             reason: $reason,
             policyVersion: $this->getVersion(),

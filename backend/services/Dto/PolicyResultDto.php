@@ -17,7 +17,6 @@ final class PolicyResultDto implements \JsonSerializable
     public function __construct(
         public readonly PolicyDecision $decision,
         public readonly RoutingDecision $finalRoutingDecision,
-        public readonly bool $executableActionsAllowed,
         public readonly array $matchedRules,
         public readonly string $reason,
         public readonly string $policyVersion,
@@ -32,9 +31,7 @@ final class PolicyResultDto implements \JsonSerializable
         return [
             'policy_decision' => $this->decision->value,
             'final_routing_decision' => $this->finalRoutingDecision->value,
-            'executable_actions_allowed' => $this->executableActionsAllowed,
             'matched_rules' => $this->matchedRules,
-            'reason' => $this->reason,
             'policy_version' => $this->policyVersion,
         ];
     }

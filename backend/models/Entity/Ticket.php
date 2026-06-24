@@ -34,12 +34,10 @@ class Ticket extends ActiveRecord
             [['external_id', 'tenant_id', 'user_id'], 'string', 'max' => 128],
             [['source'], 'string', 'max' => 64],
             [['created_at'], 'safe'],
-            [
-                ['tenant_id', 'external_id'],
-                'unique',
-                'targetAttribute' => ['tenant_id', 'external_id'],
-                'message' => 'Тикет с таким external_id уже существует в этом tenant.',
-            ],
+            // Уникальность (tenant_id, external_id) держит индекс ux_tickets_tenant_external +
+            // идемпотентный приём (TicketIngestionService, INSERT ... ON CONFLICT DO NOTHING).
+            // AR-правило 'unique' здесь было бы TOCTOU-racy и ломало бы идемпотентный путь
+            // (validate() падал бы на уже существующем тикете).
         ];
     }
 

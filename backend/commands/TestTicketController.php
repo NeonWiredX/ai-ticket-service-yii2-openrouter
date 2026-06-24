@@ -2,23 +2,21 @@
 
 namespace app\commands;
 
-use app\models\Entity\AiDecision;
 use app\services\Classifiers\FakeClassifier;
 use app\services\Dto\IngestTicketCommand;
-use app\services\Exceptions\AiDecisionSaveException;
 use app\services\Policy\PolicyV1Service;
 use app\services\Schema\ClassificationSchemaV1;
 use app\services\TicketClassificationService;
 use app\services\TicketIngestionService;
+use app\services\TicketProcessingService;
 use yii\console\Controller;
 use yii\console\ExitCode;
 use yii\helpers\Console;
 
 /**
- * Наполнение БД тестовыми тикетами (для разработки): генерит случайный вход и гоняет полный пайплайн —
- * идемпотентный приём (TicketIngestionService) → классификация (TicketClassificationService,
- * фейковый классификатор + политика v1) → «в лоб» сохранение AiDecisionDto как AiDecision.
- * Приём/запись здесь намеренно примитивны — позже приём за HTTP, запись решения — в репозиторий.
+ * Наполнение БД тестовыми тикетами (для разработки): генерит случайный вход и прогоняет его
+ * через TicketProcessingService (приём → классификация → сохранение решения).
+ * Контроллер — только composition root и вывод; вся оркестрация в сервисе.
  */
 class TestTicketController extends Controller
 {
@@ -53,7 +51,7 @@ class TestTicketController extends Controller
     ];
 
     /**
-     * Создаёт тикет(ы) со случайными данными через сервис классификации.
+     * Создаёт тикет(ы) со случайными данными через TicketProcessingService.
      *
      * Примеры:
      *   yii test-ticket/add        — один тикет + решение
@@ -68,40 +66,25 @@ class TestTicketController extends Controller
             return ExitCode::DATAERR;
         }
 
-        $ingestion = new TicketIngestionService();
-        $classification = new TicketClassificationService(new FakeClassifier(), new PolicyV1Service(), new ClassificationSchemaV1());
+        $processing = new TicketProcessingService(
+            new TicketIngestionService(),
+            new TicketClassificationService(new FakeClassifier(), new PolicyV1Service(), new ClassificationSchemaV1()),
+        );
 
         $created = 0;
         $skipped = 0;
         for ($i = 0; $i < $count; $i++) {
             try {
-                // приём (идемпотентно): дубль (tenant_id, external_id) вернётся как существующий
-                $result = $ingestion->ingest($this->randomCommand());
-                $ticket = $result->ticket;
-
-                // идемпотентность сабмита: классифицируем, только если у тикета ещё нет решения
-                $needsClassification = $result->wasCreated
-                    || !AiDecision::find()->where(['ticket_id' => $ticket->id])->exists();
-
-                if (!$needsClassification) {
-                    $skipped++;
-                    $this->stdout("• ticket #{$ticket->id} уже принят и классифицирован — пропуск\n");
-                    continue;
-                }
-
-                // домен возвращает DTO (БД не трогает)
-                $decision = $classification->classify($ticket);
-
-                // «тупая» персистентность решения (позже — AiDecisionRepository)
-                $ai = new AiDecision();
-                $ai->load($decision->toAiDecisionAttributes(), '');
-                if (!$ai->save()) {
-                    throw new AiDecisionSaveException(
-                        json_encode($ai->getErrors(), JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)
-                    );
-                }
+                $result = $processing->process($this->randomCommand());
             } catch (\Throwable $e) {
                 $this->stderr('✘ ' . $e::class . ': ' . $e->getMessage() . "\n", Console::FG_RED);
+                continue;
+            }
+
+            $ai = $result->decision;
+            if ($result->skipped) {
+                $skipped++;
+                $this->stdout("• ticket #{$ai->ticket_id} уже классифицирован (ai_decision #{$ai->id}) — пропуск\n");
                 continue;
             }
 

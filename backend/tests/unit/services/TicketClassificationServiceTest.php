@@ -2,129 +2,132 @@
 
 namespace tests\unit\services;
 
-use app\models\Entity\AiDecision;
 use app\models\Entity\Ticket;
+use app\models\Enum\Category;
+use app\models\Enum\ClassificationStatus;
+use app\models\Enum\PolicyDecision;
+use app\models\Enum\Priority;
+use app\models\Enum\Risk;
+use app\models\Enum\RoutingDecision;
 use app\services\Classifiers\TicketClassifierInterface;
+use app\services\Dto\AiDecisionDto;
 use app\services\Dto\ClassificationResultDto;
 use app\services\Exceptions\ClassifierException;
-use app\services\Exceptions\TicketValidationException;
 use app\services\Policy\PolicyV1Service;
+use app\services\Schema\ClassificationSchemaInterface;
+use app\services\Schema\ClassificationSchemaV1;
 use app\services\TicketClassificationService;
 
+/**
+ * Чистый юнит: сервис не трогает БД (возвращает DTO), поэтому тикет — in-memory.
+ * Поведение политики покрыто PolicyV1ServiceTest; здесь — сборка решения и вывод статуса.
+ */
 class TicketClassificationServiceTest extends \Codeception\Test\Unit
 {
-    private function service(?TicketClassifierInterface $classifier = null): TicketClassificationService
-    {
-        return new TicketClassificationService(
-            $classifier ?? $this->stubClassifier(['risk' => 'none', 'confidence' => 0.95]),
-            new PolicyV1Service(),
+    /**
+     * @param array<string,string>|null $validationErrors
+     */
+    private function dto(
+        ?Risk $risk = Risk::NONE,
+        ?float $confidence = 0.95,
+        ?RoutingDecision $route = RoutingDecision::SUPPORT_QUEUE,
+        ?array $validationErrors = null,
+    ): ClassificationResultDto {
+        return new ClassificationResultDto(
+            category: Category::BILLING,
+            priority: Priority::LOW,
+            risk: $risk,
+            confidence: $confidence,
+            summary: null,
+            reason: null,
+            modelRoutingDecision: $route,
+            model: 'stub',
+            schemaVersion: 'classification.v1',
+            traceId: 'trace-x',
+            validationErrors: $validationErrors,
         );
     }
 
-    /**
-     * Классификатор с фиксированным ответом — для детерминированных проверок.
-     *
-     * @param array<string,mixed> $output
-     */
-    private function stubClassifier(array $output): TicketClassifierInterface
+    private function service(?ClassificationResultDto $dto = null): TicketClassificationService
     {
-        return new class($output) implements TicketClassifierInterface {
-            /** @param array<string,mixed> $output */
-            public function __construct(private array $output)
+        return new TicketClassificationService(
+            $this->stubClassifier($dto ?? $this->dto()),
+            new PolicyV1Service(),
+            new ClassificationSchemaV1(),
+        );
+    }
+
+    /** Классификатор с фиксированным результатом — схему игнорирует (она не на проверке). */
+    private function stubClassifier(ClassificationResultDto $dto): TicketClassifierInterface
+    {
+        return new class($dto) implements TicketClassifierInterface {
+            public function __construct(private ClassificationResultDto $dto)
             {
             }
 
-            public function classify(Ticket $ticket): ClassificationResultDto
+            public function classify(Ticket $ticket, ClassificationSchemaInterface $schema): ClassificationResultDto
             {
-                return ClassificationResultDto::fromModelOutput(
-                    $this->output + ['routing_decision' => 'support_queue', 'category' => 'billing'],
-                    model: 'stub',
-                    schemaVersion: 'v1',
-                    traceId: 'trace-x',
-                );
+                return $this->dto;
             }
         };
     }
 
-    /** @return array<string,string> валидный вход для тикета */
-    private function ticketInput(): array
+    /** In-memory тикет с проставленным id — сервис БД не трогает. */
+    private function ticket(int $id = 1): Ticket
     {
-        return [
-            'external_id' => 'EXT-TEST-' . uniqid(),
-            'tenant_id' => 'acme',
-            'user_id' => 'u1',
-            'subject' => 'subj',
-            'body' => 'body',
-            'source' => 'email',
-        ];
+        $ticket = new Ticket();
+        $ticket->id = $id;
+
+        return $ticket;
     }
 
-    public function testClassifyPersistsTicketAndLinkedDecision(): void
+    public function testAssemblesCompletedDecisionLinkedToTicket(): void
     {
-        $ai = $this->service()->classify($this->ticketInput());
+        $decision = $this->service()->classify($this->ticket(7));
 
-        $this->assertNotNull($ai->id);
-        $this->assertNotNull($ai->ticket_id);
-        $this->assertSame('completed', $ai->status);
-        $this->assertSame('billing', $ai->category);
-        $this->assertNotNull(AiDecision::findOne($ai->id), 'решение должно сохраниться');
-        // связь в обе стороны
-        $this->assertSame($ai->ticket_id, $ai->ticket->id);
-        $this->assertInstanceOf(Ticket::class, $ai->ticket);
+        $this->assertInstanceOf(AiDecisionDto::class, $decision);
+        $this->assertSame(7, $decision->ticketId);
+        $this->assertSame(ClassificationStatus::COMPLETED, $decision->status);
+        $this->assertSame(Category::BILLING, $decision->classification->category);
+        $this->assertSame(PolicyDecision::ALLOWED, $decision->policy->decision);
     }
 
-    public function testAllowedDecisionEnablesActionsAndKeepsModelRoute(): void
+    public function testValidationErrorsYieldFailedAndBlocked(): void
     {
-        // risk=none + confidence 0.95 → ALLOWED
-        $ai = $this->service()->classify($this->ticketInput());
+        $decision = $this->service($this->dto(validationErrors: ['category' => 'bad']))
+            ->classify($this->ticket());
 
-        $this->assertSame('allowed', $ai->policy_decision);
-        $this->assertTrue((bool) $ai->executable_actions_allowed);
-        $this->assertSame('support_queue', $ai->final_routing_decision);
-        $this->assertSame((new PolicyV1Service())->getVersion(), $ai->policy_version);
+        $this->assertSame(ClassificationStatus::FAILED, $decision->status);
+        $this->assertSame(PolicyDecision::BLOCKED, $decision->policy->decision);
+        $this->assertSame(RoutingDecision::MANUAL_TRIAGE, $decision->policy->finalRoutingDecision);
     }
 
-    public function testRiskyDecisionRequiresApproval(): void
+    public function testToAttributesMergesTicketStatusClassificationAndPolicy(): void
     {
-        $service = $this->service($this->stubClassifier(['risk' => 'security', 'confidence' => 0.99]));
+        $attrs = $this->service()->classify($this->ticket(42))->toAiDecisionAttributes();
 
-        $ai = $service->classify($this->ticketInput());
-
-        $this->assertSame('requires_approval', $ai->policy_decision);
-        $this->assertFalse((bool) $ai->executable_actions_allowed);
-        // не ALLOWED → маршрут к человеку (RoutingDecision, не вердикт политики)
-        $this->assertSame('human_review', $ai->final_routing_decision);
+        $this->assertSame(42, $attrs['ticket_id']);
+        $this->assertSame('completed', $attrs['status']);
+        $this->assertSame('billing', $attrs['category']);          // из classification
+        $this->assertSame('allowed', $attrs['policy_decision']);   // из policy
+        $this->assertTrue($attrs['executable_actions_allowed']);
     }
 
-    public function testAllowedWithoutModelRouteFallsBackToManualTriage(): void
+    public function testTransportFailurePropagates(): void
     {
-        // ALLOWED, но модель не вернула маршрут → фолбэк MANUAL_TRIAGE
-        $service = $this->service($this->stubClassifier([
-            'risk' => 'none',
-            'confidence' => 0.95,
-            'routing_decision' => null,
-        ]));
-
-        $ai = $service->classify($this->ticketInput());
-
-        $this->assertSame('allowed', $ai->policy_decision);
-        $this->assertNull($ai->model_routing_decision);
-        $this->assertSame('manual_triage', $ai->final_routing_decision);
-    }
-
-    public function testInvalidTicketThrowsValidation(): void
-    {
-        $this->expectException(TicketValidationException::class);
-
-        $this->service()->classify(['external_id' => '']); // не хватает обязательных полей
-    }
-
-    public function testClassifierErrorsAbortWithException(): void
-    {
-        // битый enum в ответе модели → ClassifierException ещё до сохранения решения
-        $service = $this->service($this->stubClassifier(['category' => 'garbage']));
+        // сбой самого вызова модели (не валидация) — исключение пробрасывается наверх
+        $service = new TicketClassificationService(
+            new class implements TicketClassifierInterface {
+                public function classify(Ticket $ticket, ClassificationSchemaInterface $schema): ClassificationResultDto
+                {
+                    throw new ClassifierException('model unreachable');
+                }
+            },
+            new PolicyV1Service(),
+            new ClassificationSchemaV1(),
+        );
 
         $this->expectException(ClassifierException::class);
-        $service->classify($this->ticketInput());
+        $service->classify($this->ticket());
     }
 }

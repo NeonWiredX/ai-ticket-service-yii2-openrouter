@@ -8,16 +8,17 @@ use app\models\Enum\Priority;
 use app\models\Enum\Risk;
 use app\models\Enum\RoutingDecision;
 use app\services\Dto\ClassificationResultDto;
+use app\services\Schema\ClassificationSchemaInterface;
 
 /**
- * Заглушка классификатора: возвращает случайный результат вместо вызова модели.
- * Собирает «сырой ответ» и прогоняет его через гидрацию DTO — как настоящий.
+ * Заглушка классификатора: вместо вызова модели генерит случайный «сырой ответ»
+ * и прогоняет его через переданную схему-границу — ровно тот путь, что у настоящего.
  */
 class FakeClassifier implements TicketClassifierInterface
 {
-    public function classify(Ticket $ticket): ClassificationResultDto
+    public function classify(Ticket $ticket, ClassificationSchemaInterface $schema): ClassificationResultDto
     {
-        $output = [
+        $rawOutput = [
             'category' => $this->pickEnum(Category::class),
             'priority' => $this->pickEnum(Priority::class),
             'risk' => $this->pickEnum(Risk::class),
@@ -27,10 +28,9 @@ class FakeClassifier implements TicketClassifierInterface
             'reason' => 'Классифицировано фейковым классификатором (демо-режим).',
         ];
 
-        return ClassificationResultDto::fromModelOutput(
-            output: $output,
+        return $schema->parse(
+            $rawOutput,
             model: 'fake-classifier',
-            schemaVersion: 'v1',
             traceId: 'trace-' . bin2hex(random_bytes(8)),
             latencyMs: random_int(50, 800),
         );
@@ -43,6 +43,6 @@ class FakeClassifier implements TicketClassifierInterface
     {
         $cases = $enum::cases();
 
-        return $cases[array_rand($cases)]->value;
+        return (string) $cases[array_rand($cases)]->value;
     }
 }

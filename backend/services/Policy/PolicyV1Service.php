@@ -14,6 +14,8 @@ use app\services\Dto\PolicyResultDto;
  */
 class PolicyV1Service implements TicketPolicyInterface
 {
+    public const VERSION = 'policy.v1';
+
     private const APPROVAL_THRESHOLD = 0.6;
 
     private const RISKY = [
@@ -26,53 +28,44 @@ class PolicyV1Service implements TicketPolicyInterface
 
     public function getVersion(): string
     {
-        return 'policy.v1';
+        return self::VERSION;
     }
 
     public function checkPolicy(ClassificationResultDto $classificationResultDto): PolicyResultDto
     {
-        [$decision, $matchedRules, $reason] = $this->decide($classificationResultDto);
+        [$decision, $matchedRules] = $this->decide($classificationResultDto);
 
         return new PolicyResultDto(
             decision: $decision,
             finalRoutingDecision: $this->resolveRoute($decision, $classificationResultDto->modelRoutingDecision),
             matchedRules: $matchedRules,
-            reason: $reason,
             policyVersion: $this->getVersion(),
         );
     }
 
     /**
-     * Вердикт + сработавшие правила + причина.
+     * Вердикт + сработавшие правила (они же — машинно-читаемая причина).
      *
-     * @return array{0: PolicyDecision, 1: string[], 2: string}
+     * @return array{0: PolicyDecision, 1: string[]}
      */
     private function decide(ClassificationResultDto $dto): array
     {
         // Провал разбора ответа модели — ничего автоматически не выполняем.
         if ($dto->validationErrors !== null) {
-            return [PolicyDecision::BLOCKED, ['classification_failed'], 'Классификация не прошла валидацию.'];
+            return [PolicyDecision::BLOCKED, ['classification_failed']];
         }
 
         // Рискованные категории — только через ручное одобрение.
         if (in_array($dto->risk, self::RISKY, true)) {
-            return [
-                PolicyDecision::REQUIRES_APPROVAL,
-                ['risky_category'],
-                "Рискованная категория: {$dto->risk->value}.",
-            ];
+            return [PolicyDecision::REQUIRES_APPROVAL, ['risky_category']];
         }
 
         // Низкая уверенность модели — тоже на одобрение.
         if ($dto->confidence !== null && $dto->confidence < self::APPROVAL_THRESHOLD) {
-            return [
-                PolicyDecision::REQUIRES_APPROVAL,
-                ['low_confidence'],
-                "Низкая уверенность модели: {$dto->confidence}.",
-            ];
+            return [PolicyDecision::REQUIRES_APPROVAL, ['low_confidence']];
         }
 
-        return [PolicyDecision::ALLOWED, ['auto_allowed'], 'Безопасно для автоматической обработки.'];
+        return [PolicyDecision::ALLOWED, ['auto_allowed']];
     }
 
     /**

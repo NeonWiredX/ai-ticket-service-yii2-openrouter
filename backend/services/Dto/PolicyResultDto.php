@@ -12,13 +12,12 @@ use app\models\Enum\RoutingDecision;
 final class PolicyResultDto implements \JsonSerializable
 {
     /**
-     * @param string[] $matchedRules сработавшие правила политики
+     * @param string[] $matchedRules сработавшие правила политики (машинно-читаемая причина)
      */
     public function __construct(
         public readonly PolicyDecision $decision,
         public readonly RoutingDecision $finalRoutingDecision,
         public readonly array $matchedRules,
-        public readonly string $reason,
         public readonly string $policyVersion,
     ) {
     }
@@ -31,6 +30,7 @@ final class PolicyResultDto implements \JsonSerializable
         return [
             'policy_decision' => $this->decision->value,
             'final_routing_decision' => $this->finalRoutingDecision->value,
+            'executable_actions_allowed' => $this->decision === PolicyDecision::ALLOWED,
             'matched_rules' => $this->matchedRules,
             'policy_version' => $this->policyVersion,
         ];

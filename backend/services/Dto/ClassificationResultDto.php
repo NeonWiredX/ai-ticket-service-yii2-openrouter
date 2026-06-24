@@ -3,18 +3,15 @@
 namespace app\services\Dto;
 
 use app\models\Enum\Category;
-use app\models\Enum\ClassificationStatus;
 use app\models\Enum\Priority;
 use app\models\Enum\Risk;
 use app\models\Enum\RoutingDecision;
 
 /**
- * Результат классификации тикета — типизированный «конверт» ответа модели.
+ * Результат классификации тикета — чистый типизированный «конверт».
  *
- * Заполняется на границе через {@see self::fromModelOutput()} (сырой JSON → типы
- * + сбор ошибок), извлекается в атрибуты AiDecision через {@see self::toAiDecisionAttributes()}.
- * Поля политики (policy_*, final_routing_decision, executable_actions_allowed) сюда не входят —
- * их проставляет сервис.
+ * Наполняется границей ({@see \app\services\Schema\ClassificationSchemaInterface::parse()});
+ * сам НЕ валидирует. Извлекается в атрибуты AiDecision через {@see self::toAiDecisionAttributes()}.
  */
 final class ClassificationResultDto implements \JsonSerializable
 {
@@ -38,48 +35,7 @@ final class ClassificationResultDto implements \JsonSerializable
     ) {
     }
 
-    public static function fromModelOutput(
-        array $output,
-        string $model,
-        string $schemaVersion,
-        string $traceId,
-        ?int $latencyMs = null,
-        int $retryCount = 0,
-    ): self {
-        $errors = [];
-
-        $category = self::toEnum(Category::class, $output['category'] ?? null, 'category', $errors);
-        $priority = self::toEnum(Priority::class, $output['priority'] ?? null, 'priority', $errors);
-        $risk = self::toEnum(Risk::class, $output['risk'] ?? null, 'risk', $errors);
-        $routing = self::toEnum(RoutingDecision::class, $output['routing_decision'] ?? null, 'routing_decision', $errors);
-
-        $confidence = $output['confidence'] ?? null;
-        if ($confidence !== null && !is_numeric($confidence)) {
-            $errors['confidence'] = 'ожидалось число';
-            $confidence = null;
-        }
-
-        return new self(
-            category: $category,
-            priority: $priority,
-            risk: $risk,
-            confidence: $confidence !== null ? (float) $confidence : null,
-            summary: isset($output['summary']) ? (string) $output['summary'] : null,
-            reason: isset($output['reason']) ? (string) $output['reason'] : null,
-            modelRoutingDecision: $routing,
-            model: $model,
-            schemaVersion: $schemaVersion,
-            traceId: $traceId,
-            latencyMs: $latencyMs,
-            retryCount: $retryCount,
-            validationErrors: $errors ?: null,
-            rawModelOutput: $output,
-        );
-    }
-
     /**
-     * Извлечение в атрибуты AiDecision (enum → backing value) для `$ar->load(..., '')`.
-     *
      * @return array<string,mixed>
      */
     public function toAiDecisionAttributes(): array
@@ -105,23 +61,5 @@ final class ClassificationResultDto implements \JsonSerializable
     public function jsonSerialize(): array
     {
         return $this->toAiDecisionAttributes();
-    }
-
-    /**
-     * @param class-string<\BackedEnum> $enum
-     * @param array<string,string> $errors
-     */
-    private static function toEnum(string $enum, mixed $value, string $field, array &$errors): ?\BackedEnum
-    {
-        if ($value === null || $value === '') {
-            return null;
-        }
-
-        $case = $enum::tryFrom((string) $value);
-        if ($case === null) {
-            $errors[$field] = "недопустимое значение: {$value}";
-        }
-
-        return $case;
     }
 }

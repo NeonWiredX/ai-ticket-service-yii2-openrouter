@@ -2,59 +2,42 @@
 
 namespace app\services;
 
-use app\models\Entity\AiDecision;
 use app\models\Entity\Ticket;
 use app\models\Enum\ClassificationStatus;
 use app\services\Classifiers\TicketClassifierInterface;
-use app\services\Exceptions\AiDecisionSaveException;
+use app\services\Dto\AiDecisionDto;
 use app\services\Exceptions\ClassifierException;
-use app\services\Exceptions\TicketSaveException;
-use app\services\Exceptions\TicketValidationException;
 use app\services\Policy\TicketPolicyInterface;
+use app\services\Schema\ClassificationSchemaInterface;
 
 class TicketClassificationService
 {
     public function __construct(
-        protected TicketClassifierInterface $classifier,
-        protected TicketPolicyInterface     $policy,
+        protected TicketClassifierInterface     $classifier,
+        protected TicketPolicyInterface         $policy,
+        protected ClassificationSchemaInterface $schema,
     )
     {
     }
 
-    public function classify(array $model): AiDecision
+    /**
+     * Классифицирует уже сохранённый тикет и возвращает решение как DTO (без персистентности).
+     * Тикет должен быть персистентным — нужен $ticket->id для связи решения.
+     * Сохранением занимается отдельный слой (репозиторий/контроллер).
+     *
+     * @throws ClassifierException при сбое самого вызова модели (не валидации ответа)
+     */
+    public function classify(Ticket $ticket): AiDecisionDto
     {
-        $ticket = new Ticket();
-        if (!$ticket->load($model, '') || !$ticket->validate()) {
-            throw new TicketValidationException(
-                json_encode($ticket->getErrors(), JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)
-            );
-        }
-        if (!$ticket->save(false)) {
-            throw new TicketSaveException();
-        }
+        // Невалидный ответ модели сбоем не считается — он приходит в DTO как validationErrors
+        // и даёт статус FAILED. Сбой самого вызова модели — ClassifierException (пробрасываем).
+        $classification = $this->classifier->classify($ticket, $this->schema);
+        $policy = $this->policy->checkPolicy($classification);
 
-        $classificationResult = $this->classifier->classify($ticket);
-        if ($classificationResult->validationErrors) {
-            throw new ClassifierException(
-                json_encode($classificationResult->validationErrors, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)
-            );
-        }
-
-        $policyResult = $this->policy->checkPolicy($classificationResult);
-
-        $aiDecision = new AiDecision(['ticket_id' => $ticket->id]);
-        $aiDecision->load($classificationResult->toAiDecisionAttributes(), '');
-        $aiDecision->load($policyResult->toAiDecisionAttributes(), '');
-        $aiDecision->status = ($classificationResult->validationErrors === null
+        $status = $classification->validationErrors === null
             ? ClassificationStatus::COMPLETED
-            : ClassificationStatus::FAILED)->value;
+            : ClassificationStatus::FAILED;
 
-        if (!$aiDecision->save()) {
-            throw new AiDecisionSaveException(
-                json_encode($aiDecision->getErrors(), JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)
-            );
-        }
-
-        return $aiDecision;
+        return new AiDecisionDto($ticket->id, $status, $classification, $policy);
     }
 }

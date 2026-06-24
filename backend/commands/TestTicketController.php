@@ -2,17 +2,24 @@
 
 namespace app\commands;
 
+use app\models\Entity\AiDecision;
+use app\models\Entity\Ticket;
 use app\services\Classifiers\FakeClassifier;
+use app\services\Exceptions\AiDecisionSaveException;
+use app\services\Exceptions\TicketSaveException;
+use app\services\Exceptions\TicketValidationException;
 use app\services\Policy\PolicyV1Service;
+use app\services\Schema\ClassificationSchemaV1;
 use app\services\TicketClassificationService;
 use yii\console\Controller;
 use yii\console\ExitCode;
 use yii\helpers\Console;
 
 /**
- * Наполнение БД тестовыми тикетами через сервис классификации (для разработки):
- * генерит случайный вход тикета и прогоняет его через TicketClassificationService
- * (фейковый классификатор + политика v1), который создаёт Ticket и связанный AiDecision.
+ * Наполнение БД тестовыми тикетами (для разработки): генерит случайный вход, создаёт Ticket,
+ * прогоняет через TicketClassificationService (фейковый классификатор + политика v1) и «в лоб»
+ * сохраняет полученный AiDecisionDto как AiDecision.
+ * Persist здесь намеренно примитивный — позже приём уедет в ингестор, запись решения — в репозиторий.
  */
 class TestTicketController extends Controller
 {
@@ -62,12 +69,32 @@ class TestTicketController extends Controller
             return ExitCode::DATAERR;
         }
 
-        $service = new TicketClassificationService(new FakeClassifier(), new PolicyV1Service());
+        $service = new TicketClassificationService(new FakeClassifier(), new PolicyV1Service(), new ClassificationSchemaV1());
 
         $created = 0;
         for ($i = 0; $i < $count; $i++) {
             try {
-                $ai = $service->classify($this->randomTicketInput());
+                $ticket = new Ticket();
+                if (!$ticket->load($this->randomTicketInput(), '') || !$ticket->validate()) {
+                    throw new TicketValidationException(
+                        json_encode($ticket->getErrors(), JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)
+                    );
+                }
+                if (!$ticket->save(false)) {
+                    throw new TicketSaveException();
+                }
+
+                // домен возвращает DTO (БД не трогает)
+                $decision = $service->classify($ticket);
+
+                // «тупая» персистентность решения (позже — AiDecisionRepository)
+                $ai = new AiDecision();
+                $ai->load($decision->toAiDecisionAttributes(), '');
+                if (!$ai->save()) {
+                    throw new AiDecisionSaveException(
+                        json_encode($ai->getErrors(), JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)
+                    );
+                }
             } catch (\Throwable $e) {
                 $this->stderr('✘ ' . $e::class . ': ' . $e->getMessage() . "\n", Console::FG_RED);
                 continue;

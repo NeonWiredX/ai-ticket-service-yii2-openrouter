@@ -34,7 +34,7 @@ class TicketProcessingService
             ? null
             : AiDecision::find()->where(['ticket_id' => $ticket->id])->orderBy(['id' => SORT_DESC])->one();
         if ($existing !== null) {
-            return new TicketProcessingResult($ticket, $existing, skipped: true);
+            return new TicketProcessingResult($ticket, $existing, classificationSkipped: true);
         }
 
         $decisionDto = $this->classification->classify($ticket);
@@ -48,6 +48,6 @@ class TicketProcessingService
             );
         }
 
-        return new TicketProcessingResult($ticket, $aiDecision, skipped: false);
+        return new TicketProcessingResult($ticket, $aiDecision, classificationSkipped: false);
     }
 }

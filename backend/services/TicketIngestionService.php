@@ -5,9 +5,9 @@ namespace app\services;
 use app\models\Entity\Ticket;
 use app\services\Dto\IngestResult;
 use app\services\Dto\IngestTicketCommand;
+use app\services\Exceptions\TicketIngestionException;
 use app\services\Exceptions\TicketValidationException;
 use Yii;
-use yii\web\ServerErrorHttpException;
 
 /**
  * Приём тикета: валидирует вход и идемпотентно сохраняет Ticket.
@@ -19,7 +19,7 @@ class TicketIngestionService
 {
     /**
      * @throws TicketValidationException если вход не проходит валидацию
-     * @throws ServerErrorHttpException если тикет не найден после upsert (инвариант нарушен)
+     * @throws TicketIngestionException если тикет не найден после upsert (инвариант нарушен)
      */
     public function ingest(IngestTicketCommand $command): IngestResult
     {
@@ -44,7 +44,7 @@ class TicketIngestionService
         ]);
         if ($ticket === null) {
             // После upsert строка обязана существовать — её отсутствие значит нарушенный инвариант.
-            throw new ServerErrorHttpException('Тикет не найден после upsert.');
+            throw new TicketIngestionException('Тикет не найден после upsert.');
         }
 
         return new IngestResult($ticket, wasCreated: $inserted === 1);

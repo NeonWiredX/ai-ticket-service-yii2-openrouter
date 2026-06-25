@@ -82,7 +82,7 @@ class TestTicketController extends Controller
             }
 
             $ai = $result->decision;
-            if ($result->skipped) {
+            if ($result->classificationSkipped) {
                 $skipped++;
                 $this->stdout("• ticket #{$ai->ticket_id} уже классифицирован (ai_decision #{$ai->id}) — пропуск\n");
                 continue;

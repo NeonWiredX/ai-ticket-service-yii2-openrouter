@@ -1,0 +1,11 @@
+# Codeception Test Suite Configuration
+#
+# Интеграционные / смок-тесты: реальные внешние вызовы (сеть). Без БД и без orm —
+# гоняются там, где есть доступ к внешним сервисам; ключи/конфиг — через env.
+# Регулярный прогон их не трогает (отдельный сьют + skip без ключа).
+# RUN `build` COMMAND AFTER ADDING/REMOVING MODULES.
+
+actor: IntegrationTester
+modules:
+    enabled:
+      - Asserts

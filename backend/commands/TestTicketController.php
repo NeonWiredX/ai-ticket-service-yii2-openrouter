@@ -2,13 +2,7 @@
 
 namespace app\commands;
 
-use app\services\Classifiers\FakeClassifier;
 use app\services\Dto\IngestTicketCommand;
-use app\services\Policy\PolicyV1Service;
-use app\services\Prompt\ClassificationPromptV1;
-use app\services\Schema\ClassificationSchemaV1;
-use app\services\TicketClassificationService;
-use app\services\TicketIngestionService;
 use app\services\TicketProcessingService;
 use yii\console\Controller;
 use yii\console\ExitCode;
@@ -17,7 +11,8 @@ use yii\helpers\Console;
 /**
  * Наполнение БД тестовыми тикетами (для разработки): генерит случайный вход и прогоняет его
  * через TicketProcessingService (приём → классификация → сохранение решения).
- * Контроллер — только composition root и вывод; вся оркестрация в сервисе.
+ * Сервис внедряется через DI-контейнер (config/container.php) автовайрингом; контроллер тонкий —
+ * только генерация входа и вывод.
  */
 class TestTicketController extends Controller
 {
@@ -51,6 +46,15 @@ class TestTicketController extends Controller
         'Пишу повторно, на предыдущее обращение ответа не было.',
     ];
 
+    public function __construct(
+        $id,
+        $module,
+        private readonly TicketProcessingService $processing,
+        $config = [],
+    ) {
+        parent::__construct($id, $module, $config);
+    }
+
     /**
      * Создаёт тикет(ы) со случайными данными через TicketProcessingService.
      *
@@ -67,16 +71,11 @@ class TestTicketController extends Controller
             return ExitCode::DATAERR;
         }
 
-        $processing = new TicketProcessingService(
-            new TicketIngestionService(),
-            new TicketClassificationService(new FakeClassifier(), new PolicyV1Service(), new ClassificationSchemaV1(), new ClassificationPromptV1()),
-        );
-
         $created = 0;
         $skipped = 0;
         for ($i = 0; $i < $count; $i++) {
             try {
-                $result = $processing->process($this->randomCommand());
+                $result = $this->processing->process($this->randomCommand());
             } catch (\Throwable $e) {
                 $this->stderr('✘ ' . $e::class . ': ' . $e->getMessage() . "\n", Console::FG_RED);
                 continue;

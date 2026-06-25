@@ -97,4 +97,30 @@ class TicketProcessingServiceTest extends \Codeception\Test\Unit
             'ровно одно решение',
         );
     }
+
+    public function testRecoversWhenTicketExistsButDecisionMissing(): void
+    {
+        $command = $this->command();
+
+        // partial failure: тикет принят, но решение не сохранено (краш между ingest и persist)
+        $ingest = (new TicketIngestionService())->ingest($command);
+        $this->assertTrue($ingest->wasCreated);
+        $this->assertEquals(
+            0,
+            AiDecision::find()->where(['ticket_id' => $ingest->ticket->id])->count(),
+            'решения ещё нет',
+        );
+
+        // повторная обработка той же команды должна доклассифицировать, а не пропустить
+        $result = $this->service()->process($command);
+
+        $this->assertFalse($result->classificationSkipped, 'нет решения → классифицируем, не пропускаем');
+        $this->assertSame($ingest->ticket->id, $result->ticket->id, 'тот же тикет (дубль по приёму)');
+        $this->assertNotNull($result->decision->id, 'решение создано');
+        $this->assertEquals(
+            1,
+            AiDecision::find()->where(['ticket_id' => $ingest->ticket->id])->count(),
+            'ровно одно решение',
+        );
+    }
 }

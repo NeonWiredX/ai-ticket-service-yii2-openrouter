@@ -76,10 +76,19 @@ class TicketClassificationServiceTest extends \Codeception\Test\Unit
         };
     }
 
-    /** In-memory тикет с проставленным id — сервис БД не трогает. */
+    /**
+     * In-memory тикет с id, БЕЗ обращения к схеме БД. Переопределённый attributes() не даёт AR
+     * уйти в getTableSchema() (а тому нужен коннект к postgres) — иначе «in-memory AR» в Yii
+     * на $ticket->id = ... молча лезет в схему. Так тест остаётся настоящим unit'ом.
+     */
     private function ticket(int $id = 1): Ticket
     {
-        $ticket = new Ticket();
+        $ticket = new class extends Ticket {
+            public function attributes(): array
+            {
+                return ['id', 'external_id', 'tenant_id', 'user_id', 'subject', 'body', 'source', 'created_at'];
+            }
+        };
         $ticket->id = $id;
 
         return $ticket;

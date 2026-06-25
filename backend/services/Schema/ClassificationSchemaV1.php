@@ -46,7 +46,9 @@ class ClassificationSchemaV1 implements ClassificationSchemaInterface
         foreach (self::ENUMS as $field => $enum) {
             $properties[$field] = ['type' => 'string', 'enum' => self::enumValues($enum)];
         }
-        $properties['confidence'] = ['type' => 'number', 'minimum' => 0, 'maximum' => 1];
+        // без minimum/maximum: не все провайдеры structured output поддерживают диапазоны на number
+        // (напр. Amazon Bedrock отвергает). Границу 0..1 валидируем на своей стороне в ResponseForm::rules().
+        $properties['confidence'] = ['type' => 'number'];
         $properties['summary'] = ['type' => 'string'];
         $properties['reason'] = ['type' => 'string'];
 

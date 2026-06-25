@@ -8,6 +8,7 @@ use app\services\Classifiers\TicketClassifierInterface;
 use app\services\Dto\AiDecisionDto;
 use app\services\Exceptions\ClassifierException;
 use app\services\Policy\TicketPolicyInterface;
+use app\services\Prompt\TicketPromptInterface;
 use app\services\Schema\ClassificationSchemaInterface;
 
 class TicketClassificationService
@@ -16,6 +17,7 @@ class TicketClassificationService
         protected TicketClassifierInterface     $classifier,
         protected TicketPolicyInterface         $policy,
         protected ClassificationSchemaInterface $schema,
+        protected TicketPromptInterface         $prompt,
     )
     {
     }
@@ -31,7 +33,7 @@ class TicketClassificationService
     {
         // Невалидный ответ модели сбоем не считается — он приходит в DTO как validationErrors
         // и даёт статус FAILED. Сбой самого вызова модели — ClassifierException (пробрасываем).
-        $classification = $this->classifier->classify($ticket, $this->schema);
+        $classification = $this->classifier->classify($ticket, $this->schema, $this->prompt);
         $policy = $this->policy->checkPolicy($classification);
 
         $status = $classification->validationErrors === null

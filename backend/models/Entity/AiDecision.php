@@ -15,6 +15,7 @@ use yii\db\ActiveRecord;
  * @property int $ticket_id
  * @property string $schema_version версия схемы ответа модели
  * @property string $policy_version версия политики маршрутизации
+ * @property string $prompt_version версия промпта классификации
  * @property string $model идентификатор использованной модели
  * @property string $status статус обработки решения
  * @property string|null $category
@@ -47,14 +48,14 @@ class AiDecision extends ActiveRecord
     public function rules(): array
     {
         return [
-            [['ticket_id', 'schema_version', 'policy_version', 'model', 'status', 'trace_id'], 'required'],
+            [['ticket_id', 'schema_version', 'policy_version', 'prompt_version', 'model', 'status', 'trace_id'], 'required'],
             [['ticket_id'], 'integer'],
             [['retry_count', 'latency_ms'], 'integer', 'min' => 0],
             [['confidence'], 'number', 'min' => 0, 'max' => 1],
             [['executable_actions_allowed'], 'boolean'],
             [['summary', 'reason'], 'string'],
             [['matched_rules', 'validation_errors', 'raw_model_output'], 'safe'],
-            [['schema_version', 'policy_version'], 'string', 'max' => 32],
+            [['schema_version', 'policy_version', 'prompt_version'], 'string', 'max' => 32],
             [['model', 'model_routing_decision', 'final_routing_decision', 'policy_decision'], 'string', 'max' => 128],
             [['status', 'category', 'priority', 'risk'], 'string', 'max' => 64],
             [['trace_id'], 'string', 'max' => 64],

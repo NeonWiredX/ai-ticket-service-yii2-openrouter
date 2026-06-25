@@ -56,6 +56,7 @@ class AiDecisionPersistenceTest extends \Codeception\Test\Unit
                 modelRoutingDecision: RoutingDecision::SUPPORT_QUEUE,
                 model: 'stub',
                 schemaVersion: 'classification.v1',
+                promptVersion: 'prompt.v1',
                 traceId: 'trace-x',
             ),
             policy: new PolicyResultDto(
@@ -87,6 +88,7 @@ class AiDecisionPersistenceTest extends \Codeception\Test\Unit
         // нетривиальные поля долетели до записи (страховка D1)
         $this->assertSame('stub', $reloaded->model);
         $this->assertSame('classification.v1', $reloaded->schema_version);
+        $this->assertSame('prompt.v1', $reloaded->prompt_version);
         $this->assertSame(PolicyV1Service::VERSION, $reloaded->policy_version);
         $this->assertSame('trace-x', $reloaded->trace_id);
         $this->assertSame(['auto_allowed'], $reloaded->matched_rules);

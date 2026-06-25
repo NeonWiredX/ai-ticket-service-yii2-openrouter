@@ -8,6 +8,7 @@ use app\models\Enum\Priority;
 use app\models\Enum\Risk;
 use app\models\Enum\RoutingDecision;
 use app\services\Dto\ClassificationResultDto;
+use app\services\Prompt\TicketPromptInterface;
 use app\services\Schema\ClassificationSchemaInterface;
 
 /**
@@ -16,7 +17,7 @@ use app\services\Schema\ClassificationSchemaInterface;
  */
 class FakeClassifier implements TicketClassifierInterface
 {
-    public function classify(Ticket $ticket, ClassificationSchemaInterface $schema): ClassificationResultDto
+    public function classify(Ticket $ticket, ClassificationSchemaInterface $schema, TicketPromptInterface $prompt): ClassificationResultDto
     {
         $rawOutput = [
             'category' => $this->pickEnum(Category::class),
@@ -31,6 +32,7 @@ class FakeClassifier implements TicketClassifierInterface
         return $schema->parse(
             $rawOutput,
             model: 'fake-classifier',
+            promptVersion: $prompt->getVersion(),
             traceId: 'trace-' . bin2hex(random_bytes(8)),
             latencyMs: random_int(50, 800),
         );

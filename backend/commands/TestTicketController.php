@@ -5,6 +5,7 @@ namespace app\commands;
 use app\services\Classifiers\FakeClassifier;
 use app\services\Dto\IngestTicketCommand;
 use app\services\Policy\PolicyV1Service;
+use app\services\Prompt\ClassificationPromptV1;
 use app\services\Schema\ClassificationSchemaV1;
 use app\services\TicketClassificationService;
 use app\services\TicketIngestionService;
@@ -68,7 +69,7 @@ class TestTicketController extends Controller
 
         $processing = new TicketProcessingService(
             new TicketIngestionService(),
-            new TicketClassificationService(new FakeClassifier(), new PolicyV1Service(), new ClassificationSchemaV1()),
+            new TicketClassificationService(new FakeClassifier(), new PolicyV1Service(), new ClassificationSchemaV1(), new ClassificationPromptV1()),
         );
 
         $created = 0;

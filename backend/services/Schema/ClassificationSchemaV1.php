@@ -67,6 +67,7 @@ class ClassificationSchemaV1 implements ClassificationSchemaInterface
     public function parse(
         array $rawOutput,
         string $model,
+        string $promptVersion,
         string $traceId,
         ?int $latencyMs = null,
         int $retryCount = 0,
@@ -85,6 +86,7 @@ class ClassificationSchemaV1 implements ClassificationSchemaInterface
             modelRoutingDecision: self::toEnum(RoutingDecision::class, $form->routing_decision),
             model: $model,
             schemaVersion: self::VERSION,
+            promptVersion: $promptVersion,
             traceId: $traceId,
             latencyMs: $latencyMs,
             retryCount: $retryCount,

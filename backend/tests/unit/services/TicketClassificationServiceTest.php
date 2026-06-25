@@ -14,6 +14,8 @@ use app\services\Dto\AiDecisionDto;
 use app\services\Dto\ClassificationResultDto;
 use app\services\Exceptions\ClassifierException;
 use app\services\Policy\PolicyV1Service;
+use app\services\Prompt\ClassificationPromptV1;
+use app\services\Prompt\TicketPromptInterface;
 use app\services\Schema\ClassificationSchemaInterface;
 use app\services\Schema\ClassificationSchemaV1;
 use app\services\TicketClassificationService;
@@ -43,6 +45,7 @@ class TicketClassificationServiceTest extends \Codeception\Test\Unit
             modelRoutingDecision: $route,
             model: 'stub',
             schemaVersion: 'classification.v1',
+            promptVersion: 'prompt.v1',
             traceId: 'trace-x',
             validationErrors: $validationErrors,
         );
@@ -54,6 +57,7 @@ class TicketClassificationServiceTest extends \Codeception\Test\Unit
             $this->stubClassifier($dto ?? $this->dto()),
             new PolicyV1Service(),
             new ClassificationSchemaV1(),
+            new ClassificationPromptV1(),
         );
     }
 
@@ -65,7 +69,7 @@ class TicketClassificationServiceTest extends \Codeception\Test\Unit
             {
             }
 
-            public function classify(Ticket $ticket, ClassificationSchemaInterface $schema): ClassificationResultDto
+            public function classify(Ticket $ticket, ClassificationSchemaInterface $schema, TicketPromptInterface $prompt): ClassificationResultDto
             {
                 return $this->dto;
             }
@@ -118,13 +122,14 @@ class TicketClassificationServiceTest extends \Codeception\Test\Unit
         // сбой самого вызова модели (не валидация) — исключение пробрасывается наверх
         $service = new TicketClassificationService(
             new class implements TicketClassifierInterface {
-                public function classify(Ticket $ticket, ClassificationSchemaInterface $schema): ClassificationResultDto
+                public function classify(Ticket $ticket, ClassificationSchemaInterface $schema, TicketPromptInterface $prompt): ClassificationResultDto
                 {
                     throw new ClassifierException('model unreachable');
                 }
             },
             new PolicyV1Service(),
             new ClassificationSchemaV1(),
+            new ClassificationPromptV1(),
         );
 
         $this->expectException(ClassifierException::class);

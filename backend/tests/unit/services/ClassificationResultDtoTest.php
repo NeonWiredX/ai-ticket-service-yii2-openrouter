@@ -22,6 +22,7 @@ class ClassificationResultDtoTest extends \Codeception\Test\Unit
             modelRoutingDecision: RoutingDecision::SUPPORT_QUEUE,
             model: 'fake',
             schemaVersion: 'classification.v1',
+            promptVersion: 'prompt.v1',
             traceId: 'tt',
         );
 
@@ -32,6 +33,7 @@ class ClassificationResultDtoTest extends \Codeception\Test\Unit
         $this->assertSame('none', $attrs['risk']);
         $this->assertSame('support_queue', $attrs['model_routing_decision']);
         $this->assertSame('classification.v1', $attrs['schema_version']);
+        $this->assertSame('prompt.v1', $attrs['prompt_version']);
         $this->assertSame('fake', $attrs['model']);
         // DTO несёт только поля классификатора — не статус и не поля политики
         $this->assertArrayNotHasKey('status', $attrs);
@@ -50,6 +52,7 @@ class ClassificationResultDtoTest extends \Codeception\Test\Unit
             modelRoutingDecision: null,
             model: 'm',
             schemaVersion: 'classification.v1',
+            promptVersion: 'prompt.v1',
             traceId: 't',
         );
 

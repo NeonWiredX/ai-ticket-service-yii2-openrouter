@@ -32,6 +32,7 @@ class PolicyV1ServiceTest extends \Codeception\Test\Unit
             modelRoutingDecision: $route,
             model: 'm',
             schemaVersion: 'classification.v1',
+            promptVersion: 'prompt.v1',
             traceId: 't',
             validationErrors: $validationErrors,
         );

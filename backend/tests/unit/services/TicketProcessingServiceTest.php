@@ -9,6 +9,8 @@ use app\services\Classifiers\TicketClassifierInterface;
 use app\services\Dto\ClassificationResultDto;
 use app\services\Dto\IngestTicketCommand;
 use app\services\Policy\PolicyV1Service;
+use app\services\Prompt\ClassificationPromptV1;
+use app\services\Prompt\TicketPromptInterface;
 use app\services\Schema\ClassificationSchemaInterface;
 use app\services\Schema\ClassificationSchemaV1;
 use app\services\TicketClassificationService;
@@ -29,6 +31,7 @@ class TicketProcessingServiceTest extends \Codeception\Test\Unit
                 $classifier ?? new FakeClassifier(),
                 new PolicyV1Service(),
                 new ClassificationSchemaV1(),
+                new ClassificationPromptV1(),
             ),
         );
     }
@@ -65,11 +68,11 @@ class TicketProcessingServiceTest extends \Codeception\Test\Unit
             {
             }
 
-            public function classify(Ticket $ticket, ClassificationSchemaInterface $schema): ClassificationResultDto
+            public function classify(Ticket $ticket, ClassificationSchemaInterface $schema, TicketPromptInterface $prompt): ClassificationResultDto
             {
                 $this->calls++;
 
-                return $this->inner->classify($ticket, $schema);
+                return $this->inner->classify($ticket, $schema, $prompt);
             }
         };
 

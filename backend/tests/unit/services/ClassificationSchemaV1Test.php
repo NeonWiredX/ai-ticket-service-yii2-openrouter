@@ -23,7 +23,7 @@ class ClassificationSchemaV1Test extends \Codeception\Test\Unit
      */
     private function parse(array $raw): ClassificationResultDto
     {
-        return (new ClassificationSchemaV1())->parse($raw, model: 'm', traceId: 't');
+        return (new ClassificationSchemaV1())->parse($raw, model: 'm', promptVersion: 'prompt.v1', traceId: 't');
     }
 
     public function testValidOutputParsesWithoutErrors(): void
@@ -34,6 +34,7 @@ class ClassificationSchemaV1Test extends \Codeception\Test\Unit
         $this->assertSame(Category::BILLING, $dto->category);
         $this->assertSame(0.9, $dto->confidence);
         $this->assertSame('classification.v1', $dto->schemaVersion);
+        $this->assertSame('prompt.v1', $dto->promptVersion);
     }
 
     public function testInvalidEnumIsFlaggedAndNulled(): void

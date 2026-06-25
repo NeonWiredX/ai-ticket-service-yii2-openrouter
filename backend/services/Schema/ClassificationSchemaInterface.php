@@ -31,6 +31,7 @@ interface ClassificationSchemaInterface
     public function parse(
         array $rawOutput,
         string $model,
+        string $promptVersion,
         string $traceId,
         ?int $latencyMs = null,
         int $retryCount = 0,

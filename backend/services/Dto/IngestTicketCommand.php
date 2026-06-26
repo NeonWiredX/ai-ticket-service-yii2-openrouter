@@ -4,7 +4,8 @@ namespace app\services\Dto;
 
 /**
  * Типизированный вход приёма тикета (граница приложения), иммутабельный.
- * Транспорт (консоль/HTTP) строит его из своего ввода; в атрибуты Ticket — через toTicketAttributes().
+ * Из недоверенного массива (JSON-payload) собирается через {@see self::fromArray()};
+ * в атрибуты Ticket — через {@see self::toTicketAttributes()}.
  * Сам не валидирует — формат/длины проверяет приёмник по правилам Ticket.
  */
 final class IngestTicketCommand
@@ -17,6 +18,21 @@ final class IngestTicketCommand
         public readonly string $body,
         public readonly string $source,
     ) {
+    }
+
+    /**
+     * @param array<string,mixed> $data
+     */
+    public static function fromArray(array $data): self
+    {
+        return new self(
+            externalId: (string) ($data['external_id'] ?? ''),
+            tenantId: (string) ($data['tenant_id'] ?? ''),
+            userId: (string) ($data['user_id'] ?? ''),
+            subject: (string) ($data['subject'] ?? ''),
+            body: (string) ($data['body'] ?? ''),
+            source: (string) ($data['source'] ?? ''),
+        );
     }
 
     /**

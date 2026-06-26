@@ -60,6 +60,10 @@ flowchart TD
 Граф собирает DI-контейнер (`config/container.php`) автовайрингом; контроллеры (CLI и HTTP) получают
 `TicketProcessingService` через конструктор.
 
+> **Почему так устроено** (вывод модели ≠ решение бэкенда, зачем policy-слой, почему идемпотентность
+> на уровне БД, зачем версионировать контракты, почему невалидный вывод аудируется) и **известные
+> ограничения** — в [`docs/architecture.md`](docs/architecture.md).
+
 ---
 
 ## Quickstart
@@ -233,13 +237,23 @@ OPENROUTER_API_KEY=sk-or-... make test args="integration ClassificationGoldenTes
 
 `executable_actions_allowed = (вердикт == allowed)`.
 
+Маппинг **сырой ответ модели → вердикт политики** зафиксирован детерминированными фикстурами
+(`PolicyDecisionTest`, `tests/_data/policy_fixtures.json`) — это тестирует именно policy layer (ценность
+бэкенда), без модели и БД:
+
+- **`policy_boundary`** — кейсы у границ: порог `confidence` 0.59 vs 0.60, перекрытие risky-категорией
+  (`money_movement` / `privacy` / `security` / `destructive_action`) поверх высокой уверенности,
+  сохранение маршрута модели при `allowed`;
+- **`model_failure`** — невалидный ответ модели (битый enum / `confidence` вне диапазона / нет поля) →
+  `validationErrors` → `blocked` → `manual_triage`.
+
 ---
 
 ## Ярусы тестов
 
 | Сьют | Покрытие | Зависимости | Запуск |
 |---|---|---|---|
-| **unit** (53) | домен (схема, политика, классификация, DTO), CLI-контракт; mock / in-memory | без БД (в т.ч. гоняется при недоступном postgres) | `make test args="unit"` |
+| **unit** (64) | домен (схема, политика, классификация, DTO), CLI-контракт, policy-фикстуры (model output → decision); mock / in-memory | без БД (в т.ч. гоняется при недоступном postgres) | `make test args="unit"` |
 | **integration** (18) | приём/персист/обработка против БД + OpenRouter smoke + golden-eval (эталонные тикеты, prompt-injection регрессии) | postgres (DB-тесты); ключ+сеть для smoke/golden (иначе skip) | `make test args="integration"` |
 | **functional** (13) | HTTP-эндпоинт через Yii2 + REST (эмуляция запроса) + дефолтные формы | postgres | `make test args="functional"` |
 | **e2e** (2) | `ticket/process` через весь живой стек + проверка реальной записи в БД | postgres | `make test args="e2e"` |
@@ -250,6 +264,31 @@ DB-тесты идут в транзакции с откатом (данные �
 Заметки по тестам: «in-memory AR» в Yii **не** in-memory (`$ar->id = x` лезет в `getTableSchema()` → БД) —
 для честных DB-free юнитов в дублях переопределяется `attributes()`. Идемпотентность доказывается прямо
 (счётчик вызовов + строки в БД), а не косвенно.
+
+---
+
+## Архитектура и решения
+
+Развёрнуто «почему так устроено» — в [`docs/architecture.md`](docs/architecture.md). Кратко:
+
+- **вывод модели ≠ решение бэкенда** — `ClassificationResultDto` это *вход* в политику, а не выход
+  системы; итоговый маршрут принимает детерминированный код, а не подконтрольный пользователю текст;
+- **policy-слой** — чистая функция `(risk, confidence, validationErrors) → вердикт`, тестируемая на
+  точных границах без живой модели; правила видны в коде, а не растворены в промпте;
+- **идемпотентность на уровне БД** — уникальный индекс + `ON CONFLICT`, а не TOCTOU-проверка, чтобы
+  держаться под конкуренцией;
+- **версионированные контракты** — `schema/prompt/policy/model` на каждом решении: воспроизводимость,
+  диффинг версий, атрибуция регрессии;
+- **невалидный вывод аудируется** — `failed` + `validationErrors` → `manual_triage`, не исключение и не
+  тихий дефолт.
+
+### Известные ограничения
+
+Осознанный скоуп демо, не недосмотр (детали и «куда расти» — в
+[`docs/architecture.md`](docs/architecture.md#известные-ограничения)):
+нет auth на HTTP-эндпоинте · нет rate limiting · нет очереди/async-обработки (классификация синхронна) ·
+OpenRouter включается вручную через DI-binding · golden-eval платный и зависит от модели · нет интеграции
+с реальным источником тикетов · нет PII-редактирования.
 
 ---
 

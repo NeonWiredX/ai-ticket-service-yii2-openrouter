@@ -1,0 +1,68 @@
+[
+  {
+    "name": "harmless-general-allowed",
+    "group": "policy_boundary",
+    "model_output": {"category": "general", "priority": "low", "risk": "none", "routing_decision": "support_queue", "confidence": 0.95, "summary": "s", "reason": "r"},
+    "expect": {"policy_decision": "allowed", "final_routing_decision": "support_queue", "executable_actions_allowed": true, "matched_rules": ["auto_allowed"]}
+  },
+  {
+    "name": "low-confidence-just-below-threshold",
+    "group": "policy_boundary",
+    "model_output": {"category": "general", "priority": "medium", "risk": "none", "routing_decision": "support_queue", "confidence": 0.59, "summary": "s", "reason": "r"},
+    "expect": {"policy_decision": "requires_approval", "final_routing_decision": "human_review", "executable_actions_allowed": false, "matched_rules": ["low_confidence"]}
+  },
+  {
+    "name": "confidence-exactly-at-threshold",
+    "group": "policy_boundary",
+    "model_output": {"category": "general", "priority": "medium", "risk": "none", "routing_decision": "support_queue", "confidence": 0.6, "summary": "s", "reason": "r"},
+    "expect": {"policy_decision": "allowed", "final_routing_decision": "support_queue", "executable_actions_allowed": true, "matched_rules": ["auto_allowed"]}
+  },
+  {
+    "name": "money-movement-overrides-high-confidence",
+    "group": "policy_boundary",
+    "model_output": {"category": "billing", "priority": "high", "risk": "money_movement", "routing_decision": "auto_reply_candidate", "confidence": 0.99, "summary": "s", "reason": "r"},
+    "expect": {"policy_decision": "requires_approval", "final_routing_decision": "human_review", "executable_actions_allowed": false, "matched_rules": ["risky_category"]}
+  },
+  {
+    "name": "privacy-delete-requires-approval",
+    "group": "policy_boundary",
+    "model_output": {"category": "privacy", "priority": "high", "risk": "privacy", "routing_decision": "privacy_review", "confidence": 0.9, "summary": "s", "reason": "r"},
+    "expect": {"policy_decision": "requires_approval", "final_routing_decision": "human_review", "executable_actions_allowed": false, "matched_rules": ["risky_category"]}
+  },
+  {
+    "name": "security-breach-requires-approval",
+    "group": "policy_boundary",
+    "model_output": {"category": "security", "priority": "critical", "risk": "security", "routing_decision": "security_escalation", "confidence": 0.93, "summary": "s", "reason": "r"},
+    "expect": {"policy_decision": "requires_approval", "final_routing_decision": "human_review", "executable_actions_allowed": false, "matched_rules": ["risky_category"]}
+  },
+  {
+    "name": "destructive-action-requires-approval",
+    "group": "policy_boundary",
+    "model_output": {"category": "account", "priority": "high", "risk": "destructive_action", "routing_decision": "human_review", "confidence": 0.88, "summary": "s", "reason": "r"},
+    "expect": {"policy_decision": "requires_approval", "final_routing_decision": "human_review", "executable_actions_allowed": false, "matched_rules": ["risky_category"]}
+  },
+  {
+    "name": "allowed-keeps-model-route",
+    "group": "policy_boundary",
+    "model_output": {"category": "technical", "priority": "medium", "risk": "none", "routing_decision": "engineering_incident", "confidence": 0.9, "summary": "s", "reason": "r"},
+    "expect": {"policy_decision": "allowed", "final_routing_decision": "engineering_incident", "executable_actions_allowed": true, "matched_rules": ["auto_allowed"]}
+  },
+  {
+    "name": "failure-invalid-enum-category",
+    "group": "model_failure",
+    "model_output": {"category": "nonsense", "priority": "low", "risk": "none", "routing_decision": "support_queue", "confidence": 0.9, "summary": "s", "reason": "r"},
+    "expect": {"policy_decision": "blocked", "final_routing_decision": "manual_triage", "executable_actions_allowed": false, "matched_rules": ["classification_failed"]}
+  },
+  {
+    "name": "failure-confidence-out-of-range",
+    "group": "model_failure",
+    "model_output": {"category": "general", "priority": "low", "risk": "none", "routing_decision": "support_queue", "confidence": 2.0, "summary": "s", "reason": "r"},
+    "expect": {"policy_decision": "blocked", "final_routing_decision": "manual_triage", "executable_actions_allowed": false, "matched_rules": ["classification_failed"]}
+  },
+  {
+    "name": "failure-missing-required-risk",
+    "group": "model_failure",
+    "model_output": {"category": "general", "priority": "low", "routing_decision": "support_queue", "confidence": 0.9, "summary": "s", "reason": "r"},
+    "expect": {"policy_decision": "blocked", "final_routing_decision": "manual_triage", "executable_actions_allowed": false, "matched_rules": ["classification_failed"]}
+  }
+]

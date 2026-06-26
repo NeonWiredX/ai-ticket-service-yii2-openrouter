@@ -1,6 +1,6 @@
 <?php
 
-namespace tests\unit\services;
+namespace tests\integration;
 
 use app\models\Entity\AiDecision;
 use app\models\Entity\Ticket;

@@ -3,7 +3,7 @@
 namespace app\commands;
 
 use app\services\Dto\IngestTicketCommand;
-use app\services\Dto\TicketProcessingResult;
+use app\services\Exceptions\TicketValidationException;
 use app\services\TicketProcessingService;
 use yii\console\Controller;
 use yii\console\ExitCode;
@@ -45,48 +45,21 @@ class TicketController extends Controller
 
         try {
             $result = $this->processing->process(IngestTicketCommand::fromArray($data));
+        } catch (TicketValidationException $e) {
+            // невалидные / отсутствующие поля тикета — это проблема входных данных
+            $this->stderr('✘ невалидный тикет: ' . $e->getMessage() . "\n", Console::FG_RED);
+            return ExitCode::DATAERR;
         } catch (\Throwable $e) {
+            // сбой раннтайма / модели / БД
             $this->stderr('✘ ' . $e::class . ': ' . $e->getMessage() . "\n", Console::FG_RED);
             return ExitCode::UNSPECIFIED_ERROR;
         }
 
         $this->stdout(json_encode(
-            $this->resultToArray($result),
+            $result,
             JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR
         ) . "\n");
 
         return ExitCode::OK;
-    }
-
-    /**
-     * Стабильный результат: фиксированный набор и порядок полей (для машинного потребления).
-     *
-     * @return array<string,mixed>
-     */
-    private function resultToArray(TicketProcessingResult $result): array
-    {
-        $decision = $result->decision;
-
-        return [
-            'ticket_id' => (int) $result->ticket->id,
-            'classification_skipped' => $result->classificationSkipped,
-            'decision' => [
-                'id' => (int) $decision->id,
-                'status' => $decision->status,
-                'category' => $decision->category,
-                'priority' => $decision->priority,
-                'risk' => $decision->risk,
-                'confidence' => $decision->confidence === null ? null : (float) $decision->confidence,
-                'policy_decision' => $decision->policy_decision,
-                'final_routing_decision' => $decision->final_routing_decision,
-                'executable_actions_allowed' => (bool) $decision->executable_actions_allowed,
-                'matched_rules' => $decision->matched_rules,
-                'model' => $decision->model,
-                'schema_version' => $decision->schema_version,
-                'policy_version' => $decision->policy_version,
-                'prompt_version' => $decision->prompt_version,
-                'trace_id' => $decision->trace_id,
-            ],
-        ];
     }
 }

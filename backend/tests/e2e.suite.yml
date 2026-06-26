@@ -1,0 +1,12 @@
+# Codeception Test Suite Configuration
+#
+# E2E: команда гоняет весь живой стек (приём → классификация → персист). Нужен postgres (orm).
+# Каждый тест в транзакции с откатом (cleanup) — данные не оседают.
+# RUN `build` COMMAND AFTER ADDING/REMOVING MODULES.
+
+actor: E2eTester
+modules:
+    enabled:
+      - Asserts
+      - Yii2:
+            part: [orm]

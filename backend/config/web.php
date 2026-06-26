@@ -16,6 +16,9 @@ $config = [
     'components' => [
         'request' => [
             'cookieValidationKey' => getenv('COOKIE_VALIDATION_KEY') ?: '',
+            'parsers' => [
+                'application/json' => 'yii\web\JsonParser',
+            ],
         ],
         'redis' => $redis,
         'cache' => [

@@ -30,7 +30,8 @@
         "codeception/module-asserts": "^3.0 || ^1.1",
         "codeception/module-yii2": "^1.1",
         "codeception/module-filesystem": "^3.0 || ^2.0 || ^1.1",
-        "codeception/verify": "^3.0 || ^2.2"
+        "codeception/verify": "^3.0 || ^2.2",
+        "codeception/module-rest": "^3.4"
     },
     "config": {
         "allow-plugins": {
